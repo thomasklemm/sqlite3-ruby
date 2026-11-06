@@ -33,9 +33,9 @@ ITER.times do |i|
     end
     holders = ObjectSpace.each_object(Array).select { |a| stale.any? { |s| a.any? { |e| e.equal?(s) } } }
     roots[:held_by_array] += holders.size
-    stale_ids = stale.map(&:object_id)
     stale = nil
     holders = nil
+    live = nil
     recurse(60) { GC.start(full_mark: true, immediate_sweep: true) }
     still = ObjectSpace.each_object(klass).count
     roots[still == 1 ? :freed_by_later_gc : :survived_later_gc] += 1

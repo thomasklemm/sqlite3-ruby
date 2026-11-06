@@ -3,11 +3,11 @@ on: push
 permissions: {}
 jobs:
   collation:
-    if: false
     strategy:
       fail-fast: false
       matrix:
         ruby: ["3.3", "4.0"]
+        variant: [main, fixed]
     runs-on: windows-latest
     steps:
       - run: |
@@ -22,24 +22,25 @@ jobs:
           bundler-cache: true
           mingw: sqlite3
       - run: bundle exec rake compile -- --enable-system-libraries
-      - name: in-process probe, registering on the test thread
-        run: bundle exec ruby -Ilib probe/collation_probe.rb same_thread 20000
-      - name: in-process probe, registering on another thread
-        run: bundle exec ruby -Ilib probe/collation_probe.rb other_thread 20000
-      - name: test_collation.rb, 40 seeds
+      - if: matrix.variant == 'fixed'
+        shell: bash
+        run: cp probe/test_collation_fixed.rb test/test_collation.rb && git diff --stat
+      - if: matrix.variant == 'main'
+        name: in-process probe
+        run: |
+          bundle exec ruby -Ilib probe/collation_probe.rb same_thread 20000
+          bundle exec ruby -Ilib probe/collation_probe.rb other_thread 20000
+      - name: full suite, 30 runs
         shell: bash
         run: |
           fails=0
-          for seed in $(seq 1 40); do
-            bundle exec ruby -Ilib -Itest test/test_collation.rb --seed $seed > out.txt 2>&1 || { fails=$((fails+1)); grep -A3 "Failure:" out.txt; }
+          for i in $(seq 1 30); do
+            bundle exec rake test > out.txt 2>&1 || { fails=$((fails+1)); grep -A3 "Failure:" out.txt; }
           done
-          echo "test_collation.rb failures: $fails/40"
-      - name: full suite, 3 runs
-        shell: bash
-        run: |
-          for i in 1 2 3; do bundle exec rake test 2>&1 | grep -E "Failure:|#test_|runs," ; done
+          echo "${{ matrix.variant }}: full-suite failures $fails/30"
 
   busy:
+    if: false
     strategy:
       fail-fast: false
       matrix:
