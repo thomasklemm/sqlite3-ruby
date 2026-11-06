@@ -73,7 +73,35 @@ jobs:
             echo "   SIGCHLD lines: $(grep -c 'signal 17' out.txt || true)"
           done
 
+  pair:
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.2", "3.4"]
+        variant: [main, fixed]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby-pkgs@2233d39c1315c667a2970436418b520a6300124e # v1.33.5
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - run: bundle exec rake compile -- --disable-system-libraries
+      - run: gcc -shared -fPIC -O2 -o /tmp/sleepshim.so probe/sleepshim.c -ldl
+      - if: matrix.variant == 'fixed'
+        run: cp probe/test_discarding_fixed.rb test/test_discarding.rb && git diff --stat
+      - name: a fork test, then test_busy_timeout, 60 times each
+        run: |
+          for t in test_fork_does_not_discard_readonly_connections test_fork_discards_an_open_readwrite_connection test_fork_does_not_discard_closed_connections; do
+            LD_PRELOAD=/tmp/sleepshim.so bundle exec ruby -Ilib probe/pair.rb $t 60 > out.txt 2>&1 || true
+            grep failed out.txt
+            echo "  sleeps cut short by SIGCHLD: $(grep -c 'signal 17' out.txt || true), by SIGVTALRM: $(grep -c 'signal 26' out.txt || true)"
+          done
+
   busy-alpine:
+    if: false
     strategy:
       fail-fast: false
       matrix:
