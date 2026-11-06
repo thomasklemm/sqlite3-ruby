@@ -128,10 +128,14 @@ class IntegrationPendingTestCase < SQLite3::TestCase
     synchronizer.wait_for_thread :ready_0
 
     start_time = Time.now
+    mono_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    $stderr.puts "[probe] test_busy_timeout begins"
     assert_raise(SQLite3::BusyException) do
       @db.execute "insert into foo (b) values ( 'from 2' )"
     end
+    mono = Process.clock_gettime(Process::CLOCK_MONOTONIC) - mono_start
     end_time = Time.now
+    $stderr.puts "[probe] test_busy_timeout realtime=#{end_time - start_time} monotonic=#{mono}"
     assert_operator(end_time - start_time, :>=, 1.0)
 
     synchronizer.send_to_thread :end_1

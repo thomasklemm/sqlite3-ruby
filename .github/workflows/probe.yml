@@ -37,3 +37,30 @@ jobs:
         shell: bash
         run: |
           for i in 1 2 3; do bundle exec rake test 2>&1 | grep -E "Failure:|#test_|runs," ; done
+
+  busy:
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.2", "3.3", "3.4", "4.0"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby-pkgs@2233d39c1315c667a2970436418b520a6300124e # v1.33.5
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+          apt-get: libsqlite3-dev
+      - run: bundle exec rake compile -- --enable-system-libraries
+      - run: gcc -shared -fPIC -O2 -o /tmp/sleepshim.so probe/sleepshim.c -ldl
+      - name: full suite, 10 runs, nanosleep EINTR shim
+        run: |
+          for i in $(seq 1 10); do
+            LD_PRELOAD=/tmp/sleepshim.so bundle exec rake test TESTOPTS=-v > out.txt 2>&1 || true
+            echo "== run $i: $(grep -E 'runs,' out.txt)"
+            grep -E '^\[probe\]|^\[sleepshim\]|Failure:|Expected' out.txt | grep -v 'interrupted by signal 26' | head -40
+            echo "   sleepshim lines: $(grep -c sleepshim out.txt), during busy test: $(sed -n '/test_busy_timeout begins/,/test_busy_timeout realtime/p' out.txt | grep -c sleepshim)"
+            sed -n '/test_busy_timeout begins/,/test_busy_timeout realtime/p' out.txt | grep sleepshim | head -5
+          done
