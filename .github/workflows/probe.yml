@@ -53,7 +53,7 @@ jobs:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
           apt-get: libsqlite3-dev
-      - run: bundle exec rake compile -- --enable-system-libraries
+      - run: bundle exec rake compile -- --disable-system-libraries
       - run: gcc -shared -fPIC -O2 -o /tmp/sleepshim.so probe/sleepshim.c -ldl
       - name: full suite, 10 runs, nanosleep EINTR shim
         run: |
