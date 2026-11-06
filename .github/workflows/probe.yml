@@ -22,9 +22,9 @@ jobs:
           mingw: sqlite3
       - run: bundle exec rake compile -- --enable-system-libraries
       - name: in-process probe, registering on the test thread
-        run: bundle exec ruby -Ilib probe/collation_probe.rb same_thread 3000
+        run: bundle exec ruby -Ilib probe/collation_probe.rb same_thread 20000
       - name: in-process probe, registering on another thread
-        run: bundle exec ruby -Ilib probe/collation_probe.rb other_thread 3000
+        run: bundle exec ruby -Ilib probe/collation_probe.rb other_thread 20000
       - name: test_collation.rb, 40 seeds
         shell: bash
         run: |

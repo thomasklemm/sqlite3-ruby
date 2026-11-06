@@ -31,6 +31,14 @@ ITER.times do |i|
     ObjectSpace.reachable_objects_from_root.each do |category, objs|
       stale.each { |s| roots[category] += 1 if objs.any? { |o| o.equal?(s) } }
     end
+    holders = ObjectSpace.each_object(Array).select { |a| stale.any? { |s| a.any? { |e| e.equal?(s) } } }
+    roots[:held_by_array] += holders.size
+    stale_ids = stale.map(&:object_id)
+    stale = nil
+    holders = nil
+    recurse(60) { GC.start(full_mark: true, immediate_sweep: true) }
+    still = ObjectSpace.each_object(klass).count
+    roots[still == 1 ? :freed_by_later_gc : :survived_later_gc] += 1
   end
   live = nil
   db.close
