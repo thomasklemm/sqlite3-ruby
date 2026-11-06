@@ -41,12 +41,11 @@ jobs:
           echo "${{ matrix.variant }}: full-suite failures $fails/30"
 
   busy:
-    if: false
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["3.2", "3.3", "3.4", "4.0"]
-        rep: [1, 2, 3]
+        ruby: ["3.2", "3.4"]
+        rep: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -67,7 +66,8 @@ jobs:
             grep -E '^\[probe\]|^\[sleepshim\]|Failure:|Expected' out.txt | grep -v 'interrupted by signal 26' | head -40
             echo "   sleepshim lines: $(grep -c sleepshim out.txt || true), during busy test: $(sed -n '/test_busy_timeout begins/,/test_busy_timeout realtime/p' out.txt | grep -c sleepshim || true)"
             if sed -n '/test_busy_timeout begins/,/test_busy_timeout realtime/p' out.txt | grep -q sleepshim; then
-              grep -n -B12 'test_busy_timeout begins' out.txt | grep -v 'signal 26'
+              grep -n -B25 'test_busy_timeout begins' out.txt | grep -v 'signal 26'
+              grep -n '\[child\]' out.txt | tail -8
               sed -n '/test_busy_timeout begins/,/test_busy_timeout realtime/p' out.txt | grep sleepshim | head -5
             fi
             echo "   SIGCHLD lines: $(grep -c 'signal 17' out.txt || true)"
@@ -102,6 +102,7 @@ jobs:
           done
 
   busy-alpine:
+    if: false
     strategy:
       fail-fast: false
       matrix:
