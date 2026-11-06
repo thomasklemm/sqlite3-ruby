@@ -1,0 +1,39 @@
+name: probe
+on: push
+permissions: {}
+jobs:
+  collation:
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.3", "4.0"]
+    runs-on: windows-latest
+    steps:
+      - run: |
+          git config --system core.autocrlf false
+          git config --system core.eol lf
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby-pkgs@2233d39c1315c667a2970436418b520a6300124e # v1.33.5
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+          mingw: sqlite3
+      - run: bundle exec rake compile -- --enable-system-libraries
+      - name: in-process probe, registering on the test thread
+        run: bundle exec ruby -Ilib probe/collation_probe.rb same_thread 3000
+      - name: in-process probe, registering on another thread
+        run: bundle exec ruby -Ilib probe/collation_probe.rb other_thread 3000
+      - name: test_collation.rb, 40 seeds
+        shell: bash
+        run: |
+          fails=0
+          for seed in $(seq 1 40); do
+            bundle exec ruby -Ilib -Itest test/test_collation.rb --seed $seed > out.txt 2>&1 || { fails=$((fails+1)); grep -A3 "Failure:" out.txt; }
+          done
+          echo "test_collation.rb failures: $fails/40"
+      - name: full suite, 3 runs
+        shell: bash
+        run: |
+          for i in 1 2 3; do bundle exec rake test 2>&1 | grep -E "Failure:|#test_|runs," ; done
