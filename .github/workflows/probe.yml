@@ -3,6 +3,7 @@ on: push
 permissions: {}
 jobs:
   collation:
+    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -40,7 +41,6 @@ jobs:
           echo "${{ matrix.variant }}: full-suite failures $fails/30"
 
   busy:
-    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -64,10 +64,10 @@ jobs:
             LD_PRELOAD=/tmp/sleepshim.so bundle exec rake test TESTOPTS=-v > out.txt 2>&1 || true
             echo "== run $i: $(grep -E 'runs,' out.txt)"
             grep -E '^\[probe\]|^\[sleepshim\]|Failure:|Expected' out.txt | grep -v 'interrupted by signal 26' | head -40
-            echo "   sleepshim lines: $(grep -c sleepshim out.txt), during busy test: $(sed -n '/test_busy_timeout begins/,/test_busy_timeout realtime/p' out.txt | grep -c sleepshim)"
+            echo "   sleepshim lines: $(grep -c sleepshim out.txt || true), during busy test: $(sed -n '/test_busy_timeout begins/,/test_busy_timeout realtime/p' out.txt | grep -c sleepshim || true)"
             if sed -n '/test_busy_timeout begins/,/test_busy_timeout realtime/p' out.txt | grep -q sleepshim; then
               grep -n -B12 'test_busy_timeout begins' out.txt | grep -v 'signal 26'
               sed -n '/test_busy_timeout begins/,/test_busy_timeout realtime/p' out.txt | grep sleepshim | head -5
             fi
-            grep -c 'signal 17' out.txt
+            echo "   SIGCHLD lines: $(grep -c 'signal 17' out.txt || true)"
           done
