@@ -41,6 +41,7 @@ jobs:
           echo "${{ matrix.variant }}: full-suite failures $fails/30"
 
   busy:
+    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -71,3 +72,32 @@ jobs:
             fi
             echo "   SIGCHLD lines: $(grep -c 'signal 17' out.txt || true)"
           done
+
+  busy-alpine:
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.2", "3.3", "3.4", "4.0"]
+        rep: [1, 2]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: |
+          docker run --rm -v $PWD:/work -w /work ruby:${{ matrix.ruby }}-alpine3.19 sh -c '
+            set -e
+            apk add build-base >/dev/null
+            bundle config set without development
+            bundle install >/dev/null
+            bundle exec rake compile -- --disable-system-libraries >/dev/null 2>&1
+            gcc -shared -fPIC -O2 -o /tmp/sleepshim.so probe/sleepshim.c
+            ruby -v
+            for i in $(seq 1 12); do
+              LD_PRELOAD=/tmp/sleepshim.so bundle exec rake test TESTOPTS=-v > out.txt 2>&1 || true
+              echo "== run $i: $(grep -E "runs," out.txt)"
+              grep -E "^\[probe\] test_busy_timeout realtime|Expected" out.txt || true
+              echo "   during busy test: $(sed -n "/test_busy_timeout begins/,/test_busy_timeout realtime/p" out.txt | grep sleepshim | sort | uniq -c | sed "s/ s unslept//" | head -5)"
+              echo "   whole run: $(grep -o "interrupted by signal [0-9]*" out.txt | sort | uniq -c | tr "\n" " ")"
+            done
+          '
