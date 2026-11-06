@@ -179,13 +179,13 @@ puts "SQLITE3_TEST_GC_LEVEL: #{SQLite3::TestCase.gc_level}"
 module ProbeChildLog
   def _fork
     pid = super
-    $stderr.puts "[child] fork #{pid}" if pid > 0
+    STDERR.puts "[child] fork #{pid}" if pid > 0
     pid
   end
 
   def spawn(*args, **kw)
     pid = super
-    $stderr.puts "[child] spawn #{pid}"
+    STDERR.puts "[child] spawn #{pid}"
     pid
   end
 end
