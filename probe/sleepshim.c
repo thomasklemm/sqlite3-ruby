@@ -9,10 +9,12 @@
 #include <time.h>
 
 static volatile sig_atomic_t last_signal;
+static volatile int last_pid;
 static struct sigaction originals[65];
 
 static void trampoline(int sig, siginfo_t *info, void *uctx) {
   last_signal = sig;
+  last_pid = info ? (int)info->si_pid : 0;
   struct sigaction *o = &originals[sig];
   if (o->sa_flags & SA_SIGINFO) {
     if (o->sa_sigaction) o->sa_sigaction(sig, info, uctx);
@@ -45,8 +47,8 @@ int nanosleep(const struct timespec *req, struct timespec *rem) {
   last_signal = 0;
   int rc = real(req, &left);
   if (rc == -1 && errno == EINTR) {
-    fprintf(stderr, "[sleepshim] nanosleep(%ld.%09ld) interrupted by signal %d (%s), %ld.%09ld s unslept\n",
-            (long)req->tv_sec, req->tv_nsec, last_signal, last_signal ? strsignal(last_signal) : "?",
+    fprintf(stderr, "[sleepshim] nanosleep(%ld.%09ld) interrupted by signal %d (%s) from pid %d, %ld.%09ld s unslept\n",
+            (long)req->tv_sec, req->tv_nsec, last_signal, last_signal ? strsignal(last_signal) : "?", last_pid,
             (long)left.tv_sec, left.tv_nsec);
     errno = EINTR;
   }
